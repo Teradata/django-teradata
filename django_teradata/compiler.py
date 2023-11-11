@@ -1,3 +1,4 @@
+from itertools import chain
 from django.core.exceptions import EmptyResultSet, FullResultSet
 from django.db import NotSupportedError
 from django.db.models.expressions import Ref
@@ -9,6 +10,29 @@ from django.db.models.sql.constants import (
 
 
 class SQLCompiler(compiler.SQLCompiler):
+
+    def results_iter(
+        self,
+        results=None,
+        tuple_expected=False,
+        chunked_fetch=False,
+        chunk_size=GET_ITERATOR_CHUNK_SIZE,
+    ):
+        """Return an iterator over the results from executing this query."""
+        if results is None:
+            results = self.execute_sql(
+                MULTI, chunked_fetch=chunked_fetch, chunk_size=chunk_size
+            )
+        fields = [s[0] for s in self.select[0 : self.col_count]]
+        converters = self.get_converters(fields)
+        rows = chain.from_iterable(results)
+        if converters:
+            rows = self.apply_converters(rows, converters)
+        #override to fix the tuple conversion
+        if tuple_expected:
+            rows = map(tuple, rows)
+        return rows
+
     def as_sql(self, with_limits=True, with_col_aliases=False):
         """
         Create the SQL for this query. Return the SQL string and list of

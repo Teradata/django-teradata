@@ -1,3 +1,5 @@
+import datetime
+import pytz
 import django
 from django.core.exceptions import ImproperlyConfigured
 from django.utils.version import get_version_tuple
@@ -19,3 +21,8 @@ def check_django_compatibility():
                 C=__version__,
             )
         )
+
+
+def get_timezone_offset(tzname):
+    timezone_info = datetime.datetime.now(pytz.timezone(tzname)).strftime('%z')
+    return f"{'-' if timezone_info[0] == '-' else ''}{timezone_info[1:3]}:{timezone_info[3:]}"

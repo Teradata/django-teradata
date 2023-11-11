@@ -3,8 +3,8 @@ import pytz
 
 from django.core.exceptions import ImproperlyConfigured
 from django.db.backends.base.base import BaseDatabaseWrapper
+from django.db.backends.base.base import NO_DB_ALIAS
 from django.db.backends.base.client import BaseDatabaseClient as DatabaseClient
-from django.db.backends.base.creation import BaseDatabaseCreation as DatabaseCreation
 from django.utils.asyncio import async_unsafe
 from django.utils.regex_helper import _lazy_re_compile
 
@@ -15,10 +15,12 @@ except ImportError as e:
 
 # Some of these import teradata connector, so import them after checking if it's installed.
 from . import __version__                                   # NOQA isort:skip
+from .creation import DatabaseCreation                      # NOQA isort:skip
 from .features import DatabaseFeatures                      # NOQA isort:skip
 from .introspection import DatabaseIntrospection            # NOQA isort:skip
 from .operations import DatabaseOperations                  # NOQA isort:skip
 from .schema import DatabaseSchemaEditor                    # NOQA isort:skip
+from .utils import get_timezone_offset                      # NOQA isort:skip
 
 
 class DatabaseWrapper(BaseDatabaseWrapper):
@@ -72,6 +74,9 @@ class DatabaseWrapper(BaseDatabaseWrapper):
 
         if settings_dict.get('NAME'):
             conn_params['database'] = settings_dict['NAME']
+        # check whether this is a test run
+        elif self.alias == NO_DB_ALIAS:
+            conn_params['database'] = 'DBC'
         else:
             raise ImproperlyConfigured(self.settings_is_missing % 'NAME')
 
@@ -98,14 +103,13 @@ class DatabaseWrapper(BaseDatabaseWrapper):
         if self.connection is None:
             return False
 
-        timezone_info = datetime.datetime.now(pytz.timezone(self.timezone_name)).astimezone().strftime('%z')
-        timezone_info_pretty = f"{'-' if timezone_info[0] == '-' else ''}{timezone_info[1:3]}:{timezone_info[3:]}"
+        tz_offset = get_timezone_offset(self.timezone_name)
         with self.connection.cursor() as cursor:
             query = "HELP SESSION"
-            session_timezone_info = cursor.execute(query).fetchone()[9]
-        if timezone_info_pretty != session_timezone_info:
+            session_tz_offset = cursor.execute(query).fetchone()[9]
+        if tz_offset != session_tz_offset:
             with self.connection.cursor() as cursor:
-                cursor.execute(f"SET TIME ZONE '{timezone_info_pretty}'")
+                cursor.execute(f"SET TIME ZONE '{tz_offset}'")
             return True
         return False
 
