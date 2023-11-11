@@ -28,6 +28,7 @@ class DatabaseFeatures(BaseDatabaseFeatures):
     supports_slicing_ordering_in_compound = True
     supports_subqueries_in_group_by = False
     supports_temporal_subtraction = False
+    supports_boolean_expr_in_select_clause = False
     # This really means "supports_nested_transactions". Teradata supports a
     # single level of transaction, BEGIN + (ROLLBACK|COMMIT). Multiple BEGINS
     # contribute to the current (only) transaction.
