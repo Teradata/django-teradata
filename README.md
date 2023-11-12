@@ -1,4 +1,4 @@
-# Experimental readonly Teradata backend for Django
+# Experimental readonly Teradata backend for Django 4.2.x
 
 ## Usage
 
