@@ -27,7 +27,32 @@ class DatabaseWrapper(BaseDatabaseWrapper):
     vendor = 'teradata'
     display_name = 'Teradata'
     # This is a readonly adapter, no need for sql schema information
-    data_types = {}
+    data_types = {
+        'AutoField': 'INTEGER',
+        'BigAutoField': 'BIGINT',
+        'BooleanField': 'BYTEINT',
+        'CharField': 'CHARACTER',
+        'DateField': 'DATE',
+        'DateTimeField': 'TIMESTAMP WITH TIME ZONE',
+        'DecimalField': 'DECIMAL(%(max_digits)s,%(decimal_places)s)',
+        'DurationField': 'NUMBER(38,0)',
+        'FileField': 'VARCHAR(%(max_length)s)',
+        'FilePathField': 'VARCHAR(%(max_length)s)',
+        'FloatField': 'FLOAT',
+        'IntegerField': 'INTEGER',
+        'BigIntegerField': 'BIGINT',
+        'GenericIPAddressField': 'VARCHAR(39)',
+        'NullBooleanField': 'BYTEINT',
+        'PositiveBigIntegerField': 'BIGINT',
+        'PositiveIntegerField': 'INTEGER',
+        'PositiveSmallIntegerField': 'SMALLINT',
+        'SlugField': 'VARCHAR(%(max_length)s)',
+        'SmallAutoField': 'SMALLINT',
+        'SmallIntegerField': 'SMALLINT',
+        'TextField': 'VARCHAR',
+        'TimeField': 'TIME',
+        'UUIDField': 'VARCHAR(32)',
+    }
     data_types_suffix = {}
     operators = {
         'exact': '= %s',
