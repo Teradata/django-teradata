@@ -75,4 +75,12 @@ class DatabaseOperations(BaseDatabaseOperations):
 
         raise ValueError(f"Invalid lookup type: {lookup_type!r}")
 
+    def get_db_converters(self, expression):
+        converters = super().get_db_converters(expression)
+        internal_type = expression.output_field.get_internal_type()
+        if internal_type == "BooleanField":
+            converters.append(self.convert_booleanfield_value)
+        return converters
 
+    def convert_booleanfield_value(self, value, expression, connection):
+        return bool(value) if value is not None else None
