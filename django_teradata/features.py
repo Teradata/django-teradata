@@ -9,7 +9,6 @@ class DatabaseFeatures(BaseDatabaseFeatures):
     can_clone_databases = False
     closed_cursor_error_class = InterfaceError
     allows_multiple_constraints_on_same_fields = False
-    has_json_object_function = False
     indexes_foreign_keys = False
     nulls_order_largest = True
     supported_explain_formats = {'TEXT'}
@@ -20,7 +19,7 @@ class DatabaseFeatures(BaseDatabaseFeatures):
     supports_expression_indexes = False
     supports_ignore_conflicts = False
     supports_index_column_ordering = False
-    supports_json_field_contains = False
+    supports_json_field = False
     supports_over_clause = True
     supports_partial_indexes = False
     supports_regex_backreferencing = False
