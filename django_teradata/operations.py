@@ -84,3 +84,21 @@ class DatabaseOperations(BaseDatabaseOperations):
 
     def convert_booleanfield_value(self, value, expression, connection):
         return bool(value) if value is not None else None
+
+    def combine_expression(self, connector, sub_expressions):
+        lhs, rhs = sub_expressions
+        if connector == '&':
+            return 'BITAND(%(lhs)s,%(rhs)s)' % {'lhs': lhs, 'rhs': rhs}
+        elif connector == '|':
+            return 'BITOR(%(lhs)s,%(rhs)s)' % {'lhs': lhs, 'rhs': rhs}
+        elif connector == '#':
+            return 'BITXOR(%(lhs)s, %(rhs)s)' % {'lhs': lhs, 'rhs': rhs}
+        elif connector == '<<':
+            return 'BITSHIFTLEFT(%(lhs)s, %(rhs)s)' % {'lhs': lhs, 'rhs': rhs}
+        elif connector == '>>':
+            return 'BITSHIFTRIGHT(%(lhs)s, %(rhs)s)' % {'lhs': lhs, 'rhs': rhs}
+        elif connector == "%%":
+            return "MOD(%s)" % ",".join(sub_expressions)
+        elif connector == '^':
+            return 'POWER(%s)' % ','.join(sub_expressions)
+        return super().combine_expression(connector, sub_expressions)
