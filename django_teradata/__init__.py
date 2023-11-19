@@ -6,7 +6,8 @@ from .utils import check_django_compatibility
 
 check_django_compatibility()
 
-from .functions import register_functions  # noqa
+from .expressions import register_expressions  # noqa
+from .functions import register_functions      # noqa
 
+register_expressions()
 register_functions()
-
