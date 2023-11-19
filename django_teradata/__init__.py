@@ -8,6 +8,8 @@ check_django_compatibility()
 
 from .expressions import register_expressions  # noqa
 from .functions import register_functions      # noqa
+from .text import register_text                # noqa
 
 register_expressions()
 register_functions()
+register_text()
