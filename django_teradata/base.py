@@ -68,14 +68,14 @@ class DatabaseWrapper(BaseDatabaseWrapper):
         'istartswith': "LIKE %s (NOT CASESPECIFIC) ESCAPE '\\'",
         'iendswith': "LIKE %s (NOT CASESPECIFIC) ESCAPE '\\'",
     }
-    pattern_esc = r"REPLACE(REPLACE(REPLACE({}, '\', '\\'), '%%', '\%%'), '_', '\_')"
+    pattern_esc = r"OREPLACE(OREPLACE(OREPLACE({}, '\', '\\'), '%%', '\%%'), '_', '\_')"
     pattern_ops = {
         'contains': "LIKE '%%' || {} || '%%' ESCAPE '\\'",
-        'icontains': "LIKE '%%' (NOT CASESPECIFIC) || {} || '%%' ESCAPE '\\'",
+        'icontains': "LIKE '%%' || {} || '%%' (NOT CASESPECIFIC) ESCAPE '\\'",
         'startswith': "LIKE {} || '%%' ESCAPE '\\'",
-        'istartswith': "LIKE {} (NOT CASESPECIFIC) || '%%' ESCAPE '\\'",
+        'istartswith': "LIKE {} || '%%' (NOT CASESPECIFIC) ESCAPE '\\'",
         'endswith': "LIKE '%%' || {} ESCAPE '\\'",
-        'iendswith': "LIKE '%%' (NOT CASESPECIFIC) || {} ESCAPE '\\'",
+        'iendswith': "LIKE '%%' || {} (NOT CASESPECIFIC) ESCAPE '\\'",
     }
 
     Database = Database
