@@ -4,6 +4,8 @@ from django.db.backends.base.features import BaseDatabaseFeatures
 
 class DatabaseFeatures(BaseDatabaseFeatures):
     supports_timezones = True
+    can_return_rows_from_bulk_insert = False
+    has_bulk_insert = False
     supports_paramstyle_pyformat = False
     ignores_unnecessary_order_by_in_subqueries = False
     allows_auto_pk_0 = False

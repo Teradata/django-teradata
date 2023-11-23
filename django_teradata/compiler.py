@@ -48,7 +48,7 @@ class SQLCompiler(compiler.SQLCompiler):
             extra_select, order_by, group_by = self.pre_sql_setup(
                 with_col_aliases=with_col_aliases or bool(combinator),
             )
-
+            for_update_part = None
             # Is a LIMIT/OFFSET clause needed?
             with_limit_offset = with_limits and self.query.is_sliced
             combinator = self.query.combinator
@@ -153,6 +153,59 @@ class SQLCompiler(compiler.SQLCompiler):
                     result += [self.connection.features.bare_select_suffix]
                 params.extend(f_params)
 
+                if self.query.select_for_update and features.has_select_for_update:
+                    if (
+                            self.connection.get_autocommit()
+                            # Don't raise an exception when database doesn't
+                            # support transactions, as it's a noop.
+                            and features.supports_transactions
+                    ):
+                        raise TransactionManagementError(
+                            "select_for_update cannot be used outside of a transaction."
+                        )
+
+                    if (
+                            with_limit_offset
+                            and not features.supports_select_for_update_with_limit
+                    ):
+                        raise NotSupportedError(
+                            "LIMIT/OFFSET is not supported with "
+                            "select_for_update on this database backend."
+                        )
+                    nowait = self.query.select_for_update_nowait
+                    skip_locked = self.query.select_for_update_skip_locked
+                    of = self.query.select_for_update_of
+                    no_key = self.query.select_for_no_key_update
+                    # If it's a NOWAIT/SKIP LOCKED/OF/NO KEY query but the
+                    # backend doesn't support it, raise NotSupportedError to
+                    # prevent a possible deadlock.
+                    if nowait and not features.has_select_for_update_nowait:
+                        raise NotSupportedError(
+                            "NOWAIT is not supported on this database backend."
+                        )
+                    elif skip_locked and not features.has_select_for_update_skip_locked:
+                        raise NotSupportedError(
+                            "SKIP LOCKED is not supported on this database backend."
+                        )
+                    elif of and not features.has_select_for_update_of:
+                        raise NotSupportedError(
+                            "FOR UPDATE OF is not supported on this database backend."
+                        )
+                    elif no_key and not features.has_select_for_no_key_update:
+                        raise NotSupportedError(
+                            "FOR NO KEY UPDATE is not supported on this "
+                            "database backend."
+                        )
+                    for_update_part = self.connection.ops.for_update_sql(
+                        nowait=nowait,
+                        skip_locked=skip_locked,
+                        of=self.get_select_for_update_of_arguments(),
+                        no_key=no_key,
+                    )
+
+                if for_update_part and features.for_update_after_from:
+                    result.append(for_update_part)
+
                 if where:
                     result.append("WHERE %s" % where)
                     params.extend(w_params)
@@ -206,6 +259,9 @@ class SQLCompiler(compiler.SQLCompiler):
                 if not self.query.subquery:
                     result.append('ORDER BY X.rn')
 
+            if for_update_part and not features.for_update_after_from:
+                result.append(for_update_part)
+
             if self.query.subquery and extra_select:
                 # If the query is used as a subquery, the extra selects would
                 # result in more columns than the left-hand side expression is
@@ -239,29 +295,90 @@ class SQLCompiler(compiler.SQLCompiler):
             self.query.reset_refcounts(refcounts_before)
 
 
+#dirty hack for SQLInsertCompiler
 class SQLInsertCompiler(compiler.SQLInsertCompiler):
-
-    def execute_sql(self, returning_fields=None):
-        raise NotImplementedError("Teradata backend adapter is a read only adapter.")
-
+    # verbatim copy
     def as_sql(self):
-        raise NotImplementedError("Teradata backend adapter is a read only adapter.")
+        # We don't need quote_name_unless_alias() here, since these are all
+        # going to be column names (so we can avoid the extra overhead).
+        qn = self.connection.ops.quote_name
+        opts = self.query.get_meta()
+        insert_statement = self.connection.ops.insert_statement(
+            on_conflict=self.query.on_conflict,
+        )
+        result = ["%s %s" % (insert_statement, qn(opts.db_table))]
+        fields = self.query.fields or [opts.pk]
+        result.append("(%s)" % ", ".join(qn(f.column) for f in fields))
 
+        if self.query.fields:
+            value_rows = [
+                [
+                    self.prepare_value(field, self.pre_save_val(field, obj))
+                    for field in fields
+                ]
+                for obj in self.query.objs
+            ]
+        else:
+            # An empty object.
+            value_rows = [
+                [self.connection.ops.pk_default_value()] for _ in self.query.objs
+            ]
+            fields = [None]
 
-class SQLDeleteCompiler(compiler.SQLDeleteCompiler):
-    def execute_sql(self, result_type=MULTI, chunked_fetch=False, chunk_size=GET_ITERATOR_CHUNK_SIZE):
-        raise NotImplementedError("Teradata backend adapter is a read only adapter.")
+        # Currently the backends just accept values when generating bulk
+        # queries and generate their own placeholders. Doing that isn't
+        # necessary and it should be possible to use placeholders and
+        # expressions in bulk inserts too.
+        can_bulk = (
+            not self.returning_fields and self.connection.features.has_bulk_insert
+        )
 
-    def as_sql(self):
-        raise NotImplementedError("Teradata backend adapter is a read only adapter.")
+        placeholder_rows, param_rows = self.assemble_as_sql(fields, value_rows)
 
+        on_conflict_suffix_sql = self.connection.ops.on_conflict_suffix_sql(
+            fields,
+            self.query.on_conflict,
+            (f.column for f in self.query.update_fields),
+            (f.column for f in self.query.unique_fields),
+        )
+        if (
+            self.returning_fields
+            and self.connection.features.can_return_columns_from_insert
+        ):
+            if self.connection.features.can_return_rows_from_bulk_insert:
+                result.append(
+                    self.connection.ops.bulk_insert_sql(fields, placeholder_rows)
+                )
+                params = param_rows
+            else:
+                result.append("VALUES (%s)" % ", ".join(placeholder_rows[0]))
+                params = [param_rows[0]]
+            if on_conflict_suffix_sql:
+                result.append(on_conflict_suffix_sql)
+            # Skip empty r_sql to allow subclasses to customize behavior for
+            # 3rd party backends. Refs #19096.
+            r_sql, self.returning_params = self.connection.ops.return_insert_columns(
+                self.returning_fields
+            )
+            if r_sql:
+                result.append(r_sql)
+                params += [self.returning_params]
+            return [(" ".join(result), tuple(chain.from_iterable(params)))]
 
-class SQLUpdateCompiler(compiler.SQLUpdateCompiler):
-    def execute_sql(self, result_type):
-        raise NotImplementedError("Teradata backend adapter is a read only adapter.")
+        if can_bulk:
+            result.append(self.connection.ops.bulk_insert_sql(fields, placeholder_rows))
+            if on_conflict_suffix_sql:
+                result.append(on_conflict_suffix_sql)
+            return [(" ".join(result), tuple(p for ps in param_rows for p in ps))]
+        else:
+            if on_conflict_suffix_sql:
+                result.append(on_conflict_suffix_sql)
+            return [
+                (" ".join(result + ["VALUES (%s)" % ", ".join(p)]), vals)
+                for p, vals in zip(placeholder_rows, param_rows)
+            ]
 
-    def as_sql(self):
-        raise NotImplementedError("Teradata backend adapter is a read only adapter.")
-
-
+SQLInsertCompiler = compiler.SQLInsertCompiler
+SQLDeleteCompiler = compiler.SQLDeleteCompiler
+SQLUpdateCompiler = compiler.SQLUpdateCompiler
 SQLAggregateCompiler = compiler.SQLAggregateCompiler

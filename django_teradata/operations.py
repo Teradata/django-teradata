@@ -28,8 +28,18 @@ class DatabaseOperations(BaseDatabaseOperations):
         return '"%s"' % name.upper().replace('.', '"."')
 
     def sql_flush(self, style, tables, *, reset_sequences=False, allow_cascade=False):
-        # this is a readonly adapter
-        return []
+        if not tables:
+            return []
+
+        return [
+            "%s %s %s;"
+            % (
+                style.SQL_KEYWORD("DELETE"),
+                style.SQL_FIELD(self.quote_name(table_name)),
+                style.SQL_KEYWORD("ALL")
+            )
+            for table_name in tables
+        ]
 
     def adapt_datefield_value(self, value):
         return value
@@ -115,3 +125,12 @@ class DatabaseOperations(BaseDatabaseOperations):
             # Django expects naive datetimes when settings.USE_TZ is False.
             value = timezone.make_naive(value)
         return value
+    
+    def last_insert_id(self, cursor, table_name, pk_name):
+        # This is subject to race conditions.
+        return cursor.execute(
+            'SELECT MAX({pk_name}) FROM {table_name}'.format(
+                pk_name=self.quote_name(pk_name),
+                table_name=self.quote_name(table_name),
+            )
+        ).fetchone()[0]
