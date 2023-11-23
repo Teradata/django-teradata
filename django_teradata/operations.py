@@ -40,12 +40,6 @@ class DatabaseOperations(BaseDatabaseOperations):
     def adapt_timefield_value(self, value):
         return value
 
-    def _convert_sql_to_tz(self, sql, params, tzname):
-        if tzname and settings.USE_TZ:
-            tz_offset = get_timezone_offset(tzname)
-            return f"{sql} AT TIME ZONE {tz_offset}", params
-        return sql, params
-
     def date_extract_sql(self, lookup_type, sql, params):
         lookup = lookup_type.upper()
         if lookup in ["YEAR", "MONTH", "DAY"]:
@@ -54,10 +48,16 @@ class DatabaseOperations(BaseDatabaseOperations):
         raise ValueError(f"Invalid lookup type: {lookup_type!r}")
 
     def datetime_cast_date_sql(self, sql, params, tzname):
-        return self._convert_sql_to_tz(f"CAST({sql} AS DATE)", params, tzname)
+        if tzname and settings.USE_TZ:
+            tz_offset = get_timezone_offset(tzname)
+            return f"CAST(({sql}) AS DATE AT TIME ZONE '{tz_offset}')", params
+        return f"CAST(({sql}) AS DATE)", params
 
     def datetime_cast_time_sql(self, sql, params, tzname):
-        return self._convert_sql_to_tz(f"CAST({sql} AS TIME)", params, tzname)
+        if tzname and settings.USE_TZ:
+            tz_offset = get_timezone_offset(tzname)
+            return f"(CAST(({sql}) AS TIME) AT TIME ZONE '{tz_offset}')", params
+        return f"CAST(({sql}) AS TIME)", params
 
     def datetime_extract_sql(self, lookup_type, sql, params, tzname):
         sql, params = self._convert_sql_to_tz(sql, params, tzname)

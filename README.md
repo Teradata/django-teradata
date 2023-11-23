@@ -63,5 +63,5 @@ SECRET_KEY = 'django_tests_secret_key'
 
 ```
 * merge your changes with django-teradata/test_only_data_update branch. This branch allows for CRUD operations.
-* run the tests: `$DJANGO_DIR/tests/runtests.py --settings teradata_settings -v 2 aggreagation`
+* run the tests: `$DJANGO_DIR/tests/runtests.py --settings teradata_settings -v 2 aggregation`
 
