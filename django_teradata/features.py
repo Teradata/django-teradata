@@ -3,6 +3,7 @@ from django.db.backends.base.features import BaseDatabaseFeatures
 
 
 class DatabaseFeatures(BaseDatabaseFeatures):
+    supports_timezones = True
     supports_paramstyle_pyformat = False
     ignores_unnecessary_order_by_in_subqueries = False
     allows_auto_pk_0 = False

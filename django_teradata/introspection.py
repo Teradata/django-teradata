@@ -1,6 +1,5 @@
 from django.db.backends.base.introspection import (
-    BaseDatabaseIntrospection, FieldInfo,
-    TableInfo,
+    BaseDatabaseIntrospection, FieldInfo, TableInfo,
 )
 
 '''
@@ -224,17 +223,17 @@ class DatabaseIntrospection(BaseDatabaseIntrospection):
 
     def get_table_list(self, cursor):
         database_name = self.connection.settings_dict['NAME']
-        cursor.execute(f"SELECT TableName FROM DBC.TablesV WHERE TableKind = 'T' AND DataBaseName = '{database_name}'")
+        cursor.execute(f"SELECT TableName FROM DBC.TablesV WHERE TableKind = 'T' AND UPPER(DataBaseName) = UPPER('{database_name}')")
         tables = [
             TableInfo(
-                row[0],  # table name
+                row[0].lower(),  # table name
                 't'  # 't' for table
             ) for row in cursor.fetchall()
         ]
-        cursor.execute(f"SELECT TableName FROM DBC.TablesV WHERE TableKind = 'V' AND DataBaseName = '{database_name}'")
+        cursor.execute(f"SELECT TableName FROM DBC.TablesV WHERE TableKind = 'V' AND UPPER(DataBaseName) = UPPER('{database_name}')")
         views = [
             TableInfo(
-                row[0],   # view name
+                row[0].lower(),   # view name
                 'v'  # 'v' for view
             ) for row in cursor.fetchall()
         ]

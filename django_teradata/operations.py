@@ -1,5 +1,6 @@
 from django.conf import settings
 from django.db.backends.base.operations import BaseDatabaseOperations
+from django.utils import timezone
 
 from .utils import get_timezone_offset            # NOQA isort:skip
 
@@ -80,6 +81,9 @@ class DatabaseOperations(BaseDatabaseOperations):
         internal_type = expression.output_field.get_internal_type()
         if internal_type == "BooleanField":
             converters.append(self.convert_booleanfield_value)
+        elif internal_type == 'DateTimeField':
+            if not settings.USE_TZ:
+                converters.append(self.convert_datetimefield_value)    
         return converters
 
     def convert_booleanfield_value(self, value, expression, connection):
@@ -102,3 +106,9 @@ class DatabaseOperations(BaseDatabaseOperations):
         elif connector == '^':
             return 'POWER(%s)' % ','.join(sub_expressions)
         return super().combine_expression(connector, sub_expressions)
+
+    def convert_datetimefield_value(self, value, expression, connection):
+        if value is not None:
+            # Django expects naive datetimes when settings.USE_TZ is False.
+            value = timezone.make_naive(value)
+        return value
