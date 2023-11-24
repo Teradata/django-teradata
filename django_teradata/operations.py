@@ -60,7 +60,10 @@ class DatabaseOperations(BaseDatabaseOperations):
         return f"CAST(({sql}) AS TIME)", params
 
     def datetime_extract_sql(self, lookup_type, sql, params, tzname):
-        sql, params = self._convert_sql_to_tz(sql, params, tzname)
+        if tzname and settings.USE_TZ:
+            tz_offset = get_timezone_offset(tzname)
+            sql = f"{sql} AT TIME ZONE '{tz_offset}'"
+
         lookup = str.upper(lookup_type)
 
         if lookup in ["YEAR", "MONTH", "DAY", "MINUTE", "SECOND"]:
